@@ -1,6 +1,11 @@
 from socket import *
 import os
-import select
+
+def delete_file(filename):
+    directory = './storage_files'
+    filepath = os.path.join(directory, filename)
+    os.remove(filepath)
+    print(f"Arquivo '{filename}' excluído com sucesso.")
 
 def send_replica(replica_addr, filename):
     replica_ip, replica_port = replica_addr.split(':')
@@ -12,7 +17,7 @@ def send_replica(replica_addr, filename):
     filepath = os.path.join(directory, filename)
     replicaSocket.sendall("REPLICA".encode('utf-8'))
     response = replicaSocket.recv(1024).decode('utf-8')
-    if response == 'READY':
+    if response == 'READY FOR REPLICA':
         replicaSocket.sendall(os.path.basename(filename).encode('utf-8'))
         response = replicaSocket.recv(1024).decode('utf-8')
         print(f"Replica server response: {response}")
@@ -26,11 +31,7 @@ def send_replica(replica_addr, filename):
                     replicaSocket.sendall(bytes_read)
             replicaSocket.sendall(b'EOF')
             print("Sent EOF")
-            response = replicaSocket.recv(1024).decode('utf-8')
-            print(f"Server response: {response}")
-            if response == 'READY FOR REPLICA':
-                replicaSocket.sendall('NO REPLICA'.encode('utf-8'))
-        replicaSocket.close()
+    replicaSocket.close()
 
 def receive_file(connection, filename):
     directory = './storage_files'
@@ -41,10 +42,6 @@ def receive_file(connection, filename):
     with open(filepath, 'wb') as f:
         while True:
             bytes_read = connection.recv(1024)
-            #if bytes_read.endswith(b'EOF'):
-                #f.write(bytes_read[:-3])  # Escreve os dados excluindo 'EOF'
-                #print("Received EOF")
-                #break
             if b'EOF' in bytes_read:
                 f.write(bytes_read[:bytes_read.index(b'EOF')])
                 print(f"Received {len(bytes_read)} bytes")  # Depuração
@@ -53,13 +50,7 @@ def receive_file(connection, filename):
             print(f"Received {len(bytes_read)} bytes")  # Depuração
             f.write(bytes_read)
         print(f"File {filename} has been saved to {filepath}")
-        
-    #Utilizar essa parte apenas quando atualizar o manager.  Lembrar de atualizar o server2 também.
-    connection.sendall('READY FOR REPLICA'.encode('utf-8'))
-    replica_addr = connection.recv(1024).decode('utf-8')
-    print(f"Replica address: {replica_addr}")
-    if replica_addr != 'NO REPLICA':
-        send_replica(replica_addr, filename)
+    connection.sendall('FILE RECEIVED AND STORED'.encode('utf-8'))
 
 def get_directory_size(directory):
     total_size = 0
@@ -73,6 +64,8 @@ serverPort = 9002
 serverSocket = socket(AF_INET, SOCK_STREAM)
 serverSocket.bind(('', serverPort))
 serverSocket.listen(1)
+ip_replica_1 = 'VAZIO'
+ip_replica_2 = 'VAZIO'
 
 print("The server is ready to receive")
 
@@ -87,15 +80,37 @@ while True:
         print("Ta vendo meu armazenamento né")
         directory = './storage_files'
         total_size = get_directory_size(directory)
+        print(f"Total_size = {total_size}")
         connectionSocket.sendall(str(total_size).encode('utf-8'))
+    elif command == 'IP FOR REPLICA':
+        print("Recebendo IP para envio de réplica")
+        connectionSocket.sendall('READY'.encode('utf-8'))
+        ip_replica_1 = connectionSocket.recv(1024).decode('utf-8')
+        connectionSocket.sendall('IP 1 recebido'.encode('utf-8'))
+        print("Ip para replica  1 recebido")
+        ip_replica_2 = connectionSocket.recv(1024).decode('utf-8')
+        connectionSocket.sendall('IP 2 recebido'.encode('utf-8'))
+        print("Ip para replica  2 recebido")
+    elif command == 'REPLICA':
+        connectionSocket.sendall('READY FOR REPLICA'.encode('utf-8'))
+        filename = connectionSocket.recv(1024).decode('utf-8')
+        print("Recebendo o nome do arquivo para rplica")
+        connectionSocket.sendall('READY'.encode('utf-8'))
+        print("Recebendo uma replica")
+        receive_file(connectionSocket, filename)
+        print("Replica recebida com sucesso!")
     else:
         connectionSocket.sendall('READY'.encode('utf-8'))
         print("Bora fazer backup")
         filename = connectionSocket.recv(1024).decode('utf-8')
         print(f"Receiving file: {filename}")
-        connectionSocket.sendall('READY'.encode('utf-8'))
+        connectionSocket.sendall('READY FOR RECEIVE'.encode('utf-8'))
         receive_file(connectionSocket, filename)
-        print("Request received!")
-        result = "Arquivo recebido e armazenado!".encode('utf-8')
-        connectionSocket.send(result)
-        connectionSocket.close()
+        print(ip_replica_1)
+        print(ip_replica_2)
+        if ip_replica_1 != 'VAZIO':
+            send_replica(ip_replica_1, filename)
+            send_replica(ip_replica_2, filename)
+            delete_file(filename)
+        ip_replica_1 = 'VAZIO'
+        ip_replica_2 = 'VAZIO'

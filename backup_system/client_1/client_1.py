@@ -59,20 +59,29 @@ def init_socket_connection():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(manager_address)
 
-    filepath, filename = select_file()
-    print(f"Selected file: {filename}")
-    sock.sendall(os.path.basename(filename).encode('utf-8'))
-    
-    response = sock.recv(1024).decode('utf-8')
-    print(f"Manager response: {response}")
-    if response == 'READY':
-        open_send_file(filepath, sock)
-    
-    response = sock.recv(1024).decode('utf-8')
-    print(f"Manager response: {response}")
-    time.sleep(5)
-    
+    sock.sendall('SERVER ADRESS'.encode('utf-8'))
+    server_address = sock.recv(1024).decode('utf-8')
+    server_ip, server_port = server_address.split(':')
+    server_port = int(server_port)
     sock.close()
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((server_ip, server_port))
+    sock.sendall('BACKUP'.encode('utf-8'))
+    response = sock.recv(1024).decode('utf-8')
+
+    if response == 'READY':
+        filepath, filename = select_file()
+        print(f"Selected file: {filename}")
+        sock.sendall(os.path.basename(filename).encode('utf-8'))
+        response = sock.recv(1024).decode('utf-8')
+        print(f"Server response: {response}")
+        if response == 'READY FOR RECEIVE':
+            open_send_file(filepath, sock)
+            response = sock.recv(1024).decode('utf-8')
+            print(f"Server response: {response}")
+            sock.close()
+            time.sleep(5)
 
 def main():
     client_choice = 0

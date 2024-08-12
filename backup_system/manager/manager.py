@@ -77,12 +77,12 @@ def choose_server(servers_info):
         return 0.5 * normalized_storage + 0.5 * normalized_latency
 
     sorted_servers = sorted(servers_info, key=score, reverse=True)
-    return sorted_servers[:2]
+    return sorted_servers[:3]
 
 servers_info = [
     {'address': ('localhost', 9001), 'storage': 1000, 'latency': 1},
-    {'address': ('localhost', 9002), 'storage': 1000, 'latency': 1}]
-    #{'address': ('localhost', 9003), 'storage': 1000, 'latency': None},
+    {'address': ('localhost', 9002), 'storage': 1000, 'latency': 1},
+    {'address': ('localhost', 9003), 'storage': 1000, 'latency': 1}]
     #{'address': ('localhost', 9004), 'storage': 1000, 'latency': None}
 #]
 
@@ -96,21 +96,39 @@ print("The manager is ready to receive")
 while True:
     connectionSocket, addr = managerSocket.accept()
     print(f"Connection from: {addr}")
-    filename = connectionSocket.recv(1024).decode('utf-8') 
-    print(f"Receiving file: {filename}")
-    connectionSocket.sendall('READY'.encode('utf-8'))
+    connectionSocket.recv(1024).decode('utf-8')
+
+    #filename = connectionSocket.recv(1024).decode('utf-8') 
+    #print(f"Receiving file: {filename}")
+    #connectionSocket.sendall('READY'.encode('utf-8'))
+
     #Nesse ponto, chamar função para escolher servidor para envio
     best_servers = choose_server(servers_info)
-    main_server, replica_server = best_servers[0]["address"], best_servers[1]["address"]
+    main_server, replica_server1, replica_server2 = best_servers[0]["address"], best_servers[1]["address"], best_servers[2]["address"]
+    
     serverSocket = socket(AF_INET, SOCK_STREAM)
     serverSocket.connect(main_server)
-    serverSocket.sendall("BACKUP".encode('utf-8'))
+    serverSocket.sendall('IP FOR REPLICA'.encode('utf-8'))
     response = serverSocket.recv(1024).decode('utf-8')
     if response == 'READY':
+        str_replica_server1 = ':'.join(map(str, replica_server1))
+        serverSocket.sendall(str_replica_server1.encode('utf-8'))
+        print("Enviando IP 1 de réplica para o servidor principal")
+        response = serverSocket.recv(1024).decode('utf-8')
+        if response == 'IP 1 recebido':
+            str_replica_server2 = ':'.join(map(str, replica_server2))
+            serverSocket.sendall(str_replica_server2.encode('utf-8'))
+            print("Enviando IP 2 de réplica para o servidor principal")
+            response = serverSocket.recv(1024).decode('utf-8')
+    serverSocket.close()
+
+    str_main_server = ':'.join(map(str, main_server))
+    connectionSocket.sendall(str_main_server.encode('utf-8'))
+    '''if response == 'READY':
     #Em seguida, iniciar conexão com servidor de envio e repassar dados recebidos com a função chamada na linha seguinte (receive_pass_file)
         receive_pass_file(connectionSocket, filename, serverSocket, main_server, replica_server)
         print("Request received and file sent to servers!")
         result = "Arquivo recebido e armazenado!".encode('utf-8')
         connectionSocket.send(result)
         connectionSocket.close()
-        serverSocket.close()
+        serverSocket.close()'''
