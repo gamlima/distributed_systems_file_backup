@@ -51,6 +51,7 @@ def select_file():
     for i, file in enumerate(files):
         print(f"{i + 1}. {file}")
     choice = int(input("Select a file to backup: ")) - 1
+    #OBS: IMPLEMENTAR CASO ONDE ESCOLHE ÍNDICE DE ARQUIVO NÃO EXISTENTE
     return os.path.join(directory, files[choice]), files[choice]
 
 def init_socket_connection():
@@ -69,7 +70,7 @@ def init_socket_connection():
     
     response = sock.recv(1024).decode('utf-8')
     print(f"Manager response: {response}")
-    time.sleep(3)
+    time.sleep(5)
     
     sock.close()
 
@@ -96,3 +97,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    

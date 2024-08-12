@@ -1,7 +1,9 @@
 from socket import *
 import os
+import time
 
-def receive_pass_file(connectionSocket, filename, serverSocket, server_address):
+def receive_pass_file(connectionSocket, filename, serverSocket, main_server, replica_server):
+    print(f"Sending {filename} for server")
     serverSocket.sendall(filename.encode('utf-8'))
     response = serverSocket.recv(1024).decode('utf-8')
     print(f"Server response: {response}")
@@ -9,10 +11,80 @@ def receive_pass_file(connectionSocket, filename, serverSocket, server_address):
         while True:
             bytes_read = connectionSocket.recv(1024)
             print(f"Received {len(bytes_read)} bytes. Enviando para servidor")  # Depuração
-            serverSocket.sendall(bytes_read)
             if bytes_read.endswith(b'EOF'):
                 print("Received EOF")
+                serverSocket.sendall(bytes_read[:-3])
                 break
+            else:
+                serverSocket.sendall(bytes_read)
+        serverSocket.sendall(b'EOF')
+        print("Sent EOF for server")
+        host, port = replica_server
+        print(host)
+        print(port)
+        result = ":".join(map(str, (host, port)))
+        print(result)
+        response = serverSocket.recv(1024).decode('utf-8')
+        print(f"Server response: {response}")
+        if response == 'READY FOR REPLICA':
+            serverSocket.sendall(result.encode('utf-8'))
+
+def update_servers_latency(servers_info):
+    for server in servers_info:
+        serverSocket = socket(AF_INET, SOCK_STREAM)
+        start_time = time.time()
+        serverSocket.connect(server['address'])
+        serverSocket.sendall("LATENCY".encode('utf-8'))
+        server['latency'] = time.time() - start_time
+        print(server['latency'])
+        serverSocket.close()
+
+def update_servers_storage(servers_info):
+    for server in servers_info:
+        serverSocket = socket(AF_INET, SOCK_STREAM)
+        serverSocket.connect(server['address'])
+        serverSocket.sendall("STORAGE".encode('utf-8'))
+        response = serverSocket.recv(1024).decode('utf-8')
+        if response != None:
+            server['storage'] = int(response)
+            print(f"storage: {server['storage']}")
+        serverSocket.close()
+
+def choose_server(servers_info):
+    print("Bora escolher os melhores servers")
+    update_servers_latency(servers_info)
+    print("Consegui atualizar as latências")
+    print("Bora analisar os storages")
+    update_servers_storage(servers_info)
+    print("Consegui atualizar os storages")
+    #Verificar casos específicos de armazenamento ou latencia igual a 0 ou infinito, ou cheio
+    best_storage = min(server['storage'] for server in servers_info)
+    print(f"Melhor storage: {best_storage}")
+    best_latency = min(server['latency'] for server in servers_info) 
+    print(f"Melhor latência: {best_latency}")
+
+    def score(server):
+        if server['storage'] == 0:
+            normalized_storage = 1
+        else:
+            normalized_storage = best_storage / server['storage'] #Tratar divisão por zero
+        normalized_latency = 1
+        if server['latency'] == 0:
+            normalized_latency = 1
+        else:
+            normalized_latency = best_latency / server['latency']
+        # Peso para as métricas: ajuste conforme necessário
+        return 0.5 * normalized_storage + 0.5 * normalized_latency
+
+    sorted_servers = sorted(servers_info, key=score, reverse=True)
+    return sorted_servers[:2]
+
+servers_info = [
+    {'address': ('localhost', 9001), 'storage': 1000, 'latency': 1},
+    {'address': ('localhost', 9002), 'storage': 1000, 'latency': 1}]
+    #{'address': ('localhost', 9003), 'storage': 1000, 'latency': None},
+    #{'address': ('localhost', 9004), 'storage': 1000, 'latency': None}
+#]
 
 managerPort = 9000
 managerSocket = socket(AF_INET, SOCK_STREAM)
@@ -21,10 +93,6 @@ managerSocket.listen(1)
 
 print("The manager is ready to receive")
 
-server_address = ('localhost', 9001) # Trocar pelo algoritmo de escolha
-serverSocket = socket(AF_INET, SOCK_STREAM)
-serverSocket.connect(server_address)
-
 while True:
     connectionSocket, addr = managerSocket.accept()
     print(f"Connection from: {addr}")
@@ -32,9 +100,17 @@ while True:
     print(f"Receiving file: {filename}")
     connectionSocket.sendall('READY'.encode('utf-8'))
     #Nesse ponto, chamar função para escolher servidor para envio
+    best_servers = choose_server(servers_info)
+    main_server, replica_server = best_servers[0]["address"], best_servers[1]["address"]
+    serverSocket = socket(AF_INET, SOCK_STREAM)
+    serverSocket.connect(main_server)
+    serverSocket.sendall("BACKUP".encode('utf-8'))
+    response = serverSocket.recv(1024).decode('utf-8')
+    if response == 'READY':
     #Em seguida, iniciar conexão com servidor de envio e repassar dados recebidos com a função chamada na linha seguinte (receive_pass_file)
-    receive_pass_file(connectionSocket, filename, serverSocket, server_address)
-    print("Request received and file sent to servers!")
-    result = "Arquivo recebido e armazenado!".encode('utf-8')
-    connectionSocket.send(result)
-    connectionSocket.close()
+        receive_pass_file(connectionSocket, filename, serverSocket, main_server, replica_server)
+        print("Request received and file sent to servers!")
+        result = "Arquivo recebido e armazenado!".encode('utf-8')
+        connectionSocket.send(result)
+        connectionSocket.close()
+        serverSocket.close()
