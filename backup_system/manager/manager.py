@@ -82,9 +82,9 @@ def choose_server(servers_info):
 servers_info = [
     {'address': ('localhost', 9001), 'storage': 1000, 'latency': 1},
     {'address': ('localhost', 9002), 'storage': 1000, 'latency': 1},
-    {'address': ('localhost', 9003), 'storage': 1000, 'latency': 1}]
-    #{'address': ('localhost', 9004), 'storage': 1000, 'latency': None}
-#]
+    {'address': ('localhost', 9003), 'storage': 1000, 'latency': 1},
+    {'address': ('localhost', 9004), 'storage': 1000, 'latency': 1}
+]
 
 managerPort = 9000
 managerSocket = socket(AF_INET, SOCK_STREAM)
