@@ -1,5 +1,6 @@
 from socket import *
 import os
+import time
 
 def delete_file(filename):
     directory = './storage_files'
@@ -46,11 +47,14 @@ def receive_file(connection, filename):
                 f.write(bytes_read[:bytes_read.index(b'EOF')])
                 print(f"Received {len(bytes_read)} bytes")  # Depuração
                 print("Received EOF marker")
+                connection.sendall('EOF RECEIVED'.encode('utf-8'))
+                print("Sent EOF RECEIVED")  # Adicionado para depuração
                 break
             print(f"Received {len(bytes_read)} bytes")  # Depuração
             f.write(bytes_read)
         print(f"File {filename} has been saved to {filepath}")
-    connection.sendall('FILE RECEIVED AND STORED'.encode('utf-8'))
+        #connection.sendall('FILE RECEIVED AND STORED'.encode('utf-8'))
+        time.sleep(2)
 
 def get_directory_size(directory):
     total_size = 0
@@ -106,8 +110,11 @@ while True:
         print(f"Receiving file: {filename}")
         connectionSocket.sendall('READY FOR RECEIVE'.encode('utf-8'))
         receive_file(connectionSocket, filename)
+        time.sleep(2)
         print(ip_replica_1)
+        time.sleep(2)
         print(ip_replica_2)
+        time.sleep(2)
         if ip_replica_1 != 'VAZIO':
             send_replica(ip_replica_1, filename)
             send_replica(ip_replica_2, filename)

@@ -43,7 +43,14 @@ def open_send_file(filepath, sock):
             print(f"Sending {len(bytes_read)} bytes")  # Depuração
             sock.sendall(bytes_read)
     sock.sendall(b'EOF')
+    print("Sending EOF")
+    response = sock.recv(1024).decode('utf-8')
     print("Sent EOF")
+
+    print(f"Server response: {response}")
+
+    if response == 'EOF RECEIVED':
+        sock.close()
 
 def select_file():
     directory = './files'
@@ -78,9 +85,6 @@ def init_socket_connection():
         print(f"Server response: {response}")
         if response == 'READY FOR RECEIVE':
             open_send_file(filepath, sock)
-            response = sock.recv(1024).decode('utf-8')
-            print(f"Server response: {response}")
-            sock.close()
             time.sleep(5)
 
 def main():
