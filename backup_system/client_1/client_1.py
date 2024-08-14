@@ -35,30 +35,35 @@ def delete_file():
     pass
 
 def open_send_file(filepath, sock):
+    file_size = os.path.getsize(filepath)
+    sock.sendall(file_size.to_bytes(8, 'big'))
+    print(f"Sending file size: {file_size} bytes")
+    
     with open(filepath, 'rb') as f:
+        sent_bytes = 0
         while True:
             bytes_read = f.read(1024)
             if not bytes_read:
                 break
-            print(f"Sending {len(bytes_read)} bytes")  # Depuração
             sock.sendall(bytes_read)
-    sock.sendall(b'EOF')
-    print("Sending EOF")
-    response = sock.recv(1024).decode('utf-8')
-    print("Sent EOF")
+            sent_bytes += len(bytes_read)
+            print(f"Sending {len(bytes_read)} bytes... ({sent_bytes}/{file_size})")
 
-    print(f"Server response: {response}")
-
-    if response == 'EOF RECEIVED':
-        sock.close()
+    print("File sent successfully")
+    sock.close()
 
 def select_file():
     directory = './files'
     files = os.listdir(directory)
     for i, file in enumerate(files):
         print(f"{i + 1}. {file}")
-    choice = int(input("Select a file to backup: ")) - 1
-    #OBS: IMPLEMENTAR CASO ONDE ESCOLHE ÍNDICE DE ARQUIVO NÃO EXISTENTE
+    choice = -1
+    print(len(files))
+    while choice < 0 or choice > len(files):
+        choice = int(input("Select a file to backup: ")) - 1
+        if choice < 0 or choice >= len(files):
+            print("Please, select a file that exist!")
+            choice = -1
     return os.path.join(directory, files[choice]), files[choice]
 
 def init_socket_connection():
@@ -82,7 +87,7 @@ def init_socket_connection():
         print(f"Selected file: {filename}")
         sock.sendall(os.path.basename(filename).encode('utf-8'))
         response = sock.recv(1024).decode('utf-8')
-        print(f"Server response: {response}")
+        print(f"Server response 1: {response}")
         if response == 'READY FOR RECEIVE':
             open_send_file(filepath, sock)
             time.sleep(5)

@@ -2,33 +2,6 @@ from socket import *
 import os
 import time
 
-def receive_pass_file(connectionSocket, filename, serverSocket, main_server, replica_server):
-    print(f"Sending {filename} for server")
-    serverSocket.sendall(filename.encode('utf-8'))
-    response = serverSocket.recv(1024).decode('utf-8')
-    print(f"Server response: {response}")
-    if response == 'READY':
-        while True:
-            bytes_read = connectionSocket.recv(1024)
-            print(f"Received {len(bytes_read)} bytes. Enviando para servidor")  # Depuração
-            if bytes_read.endswith(b'EOF'):
-                print("Received EOF")
-                serverSocket.sendall(bytes_read[:-3])
-                break
-            else:
-                serverSocket.sendall(bytes_read)
-        serverSocket.sendall(b'EOF')
-        print("Sent EOF for server")
-        host, port = replica_server
-        print(host)
-        print(port)
-        result = ":".join(map(str, (host, port)))
-        print(result)
-        response = serverSocket.recv(1024).decode('utf-8')
-        print(f"Server response: {response}")
-        if response == 'READY FOR REPLICA':
-            serverSocket.sendall(result.encode('utf-8'))
-
 def update_servers_latency(servers_info):
     for server in servers_info:
         serverSocket = socket(AF_INET, SOCK_STREAM)
@@ -98,11 +71,6 @@ while True:
     print(f"Connection from: {addr}")
     connectionSocket.recv(1024).decode('utf-8')
 
-    #filename = connectionSocket.recv(1024).decode('utf-8') 
-    #print(f"Receiving file: {filename}")
-    #connectionSocket.sendall('READY'.encode('utf-8'))
-
-    #Nesse ponto, chamar função para escolher servidor para envio
     best_servers = choose_server(servers_info)
     main_server, replica_server1, replica_server2 = best_servers[0]["address"], best_servers[1]["address"], best_servers[2]["address"]
     
@@ -124,11 +92,3 @@ while True:
 
     str_main_server = ':'.join(map(str, main_server))
     connectionSocket.sendall(str_main_server.encode('utf-8'))
-    '''if response == 'READY':
-    #Em seguida, iniciar conexão com servidor de envio e repassar dados recebidos com a função chamada na linha seguinte (receive_pass_file)
-        receive_pass_file(connectionSocket, filename, serverSocket, main_server, replica_server)
-        print("Request received and file sent to servers!")
-        result = "Arquivo recebido e armazenado!".encode('utf-8')
-        connectionSocket.send(result)
-        connectionSocket.close()
-        serverSocket.close()'''
