@@ -37,7 +37,6 @@ def delete_file():
 def open_send_file(filepath, sock):
     file_size = os.path.getsize(filepath)
     sock.sendall(file_size.to_bytes(8, 'big'))
-    print(f"Sending file size: {file_size} bytes")
     
     with open(filepath, 'rb') as f:
         sent_bytes = 0
@@ -58,9 +57,8 @@ def select_file():
     for i, file in enumerate(files):
         print(f"{i + 1}. {file}")
     choice = -1
-    print(len(files))
     while choice < 0 or choice > len(files):
-        choice = int(input("Select a file to backup: ")) - 1
+        choice = int(input("Select a file to backup - Enter the corresponding number: ")) - 1
         if choice < 0 or choice >= len(files):
             print("Please, select a file that exist!")
             choice = -1
