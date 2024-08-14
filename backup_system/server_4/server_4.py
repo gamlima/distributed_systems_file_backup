@@ -23,16 +23,21 @@ def send_replica(replica_addr, filename):
         response = replicaSocket.recv(1024).decode('utf-8')
         print(f"Replica server response: {response}")
         if response == 'READY':
+
+            file_size = os.path.getsize(filepath)
+            replicaSocket.sendall(file_size.to_bytes(8, 'big'))
+            print(f"Sending file size: {file_size} bytes")
+
             with open(filepath, 'rb') as f:
+                sent_bytes = 0
                 while True:
                     bytes_read = f.read(1024)
                     if not bytes_read:
                         break
-                    print(f"Sending {len(bytes_read)} bytes")  # Depuração
                     replicaSocket.sendall(bytes_read)
-            replicaSocket.sendall(b'EOF')
-            print("Sent EOF")
-    replicaSocket.close()
+                    sent_bytes += len(bytes_read)
+                    print(f"Sending {len(bytes_read)} bytes... ({sent_bytes}/{file_size})")
+            replicaSocket.close()
 
 def receive_file(connection, filename):
     directory = './storage_files'
@@ -40,21 +45,22 @@ def receive_file(connection, filename):
         os.makedirs(directory)
     filepath = os.path.join(directory, filename)
     print(f"Criando arquivo {filename} nesse servidor")
+
+    file_size = int.from_bytes(connection.recv(8), 'big')
+    print(f"Receiving file size: {file_size} bytes")
+
     with open(filepath, 'wb') as f:
-        while True:
+        received_bytes = 0
+        while received_bytes < file_size:
             bytes_read = connection.recv(1024)
-            if b'EOF' in bytes_read:
-                f.write(bytes_read[:bytes_read.index(b'EOF')])
-                print(f"Received {len(bytes_read)} bytes")  # Depuração
-                print("Received EOF marker")
-                connection.sendall('EOF RECEIVED'.encode('utf-8'))
-                print("Sent EOF RECEIVED")  # Adicionado para depuração
+            if not bytes_read:
                 break
-            print(f"Received {len(bytes_read)} bytes")  # Depuração
+
             f.write(bytes_read)
+            received_bytes += len(bytes_read)
+            print(f"Storing file. Received {len(bytes_read)} bytes. Total:{received_bytes}/{file_size}")
+
         print(f"File {filename} has been saved to {filepath}")
-        #connection.sendall('FILE RECEIVED AND STORED'.encode('utf-8'))
-        time.sleep(2)
 
 def get_directory_size(directory):
     total_size = 0
@@ -110,9 +116,7 @@ while True:
         print(f"Receiving file: {filename}")
         connectionSocket.sendall('READY FOR RECEIVE'.encode('utf-8'))
         receive_file(connectionSocket, filename)
-        time.sleep(2)
         print(ip_replica_1)
-        time.sleep(2)
         print(ip_replica_2)
         time.sleep(2)
         if ip_replica_1 != 'VAZIO':
