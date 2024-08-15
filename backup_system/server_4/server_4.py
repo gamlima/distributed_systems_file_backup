@@ -26,7 +26,6 @@ def send_replica(replica_addr, filename):
 
             file_size = os.path.getsize(filepath)
             replicaSocket.sendall(file_size.to_bytes(8, 'big'))
-            print(f"Sending file size: {file_size} bytes")
 
             with open(filepath, 'rb') as f:
                 sent_bytes = 0
@@ -85,9 +84,8 @@ while True:
     command = connectionSocket.recv(1024).decode('utf-8')
     print(f"Comando atual: {command}")
     if command == "LATENCY":
-        print("Toma aí minha latência")
+        print("Retornando latência")
     elif command == "STORAGE":
-        print("Ta vendo meu armazenamento né")
         directory = './storage_files'
         total_size = get_directory_size(directory)
         print(f"Total_size = {total_size}")
@@ -100,25 +98,21 @@ while True:
         print("Ip para replica  1 recebido")
         ip_replica_2 = connectionSocket.recv(1024).decode('utf-8')
         connectionSocket.sendall('IP 2 recebido'.encode('utf-8'))
-        print("Ip para replica  2 recebido")
+        print("Ip para replica 2 recebido")
     elif command == 'REPLICA':
         connectionSocket.sendall('READY FOR REPLICA'.encode('utf-8'))
         filename = connectionSocket.recv(1024).decode('utf-8')
         print("Recebendo o nome do arquivo para rplica")
         connectionSocket.sendall('READY'.encode('utf-8'))
-        print("Recebendo uma replica")
+        print("Recebendo uma replica...")
         receive_file(connectionSocket, filename)
         print("Replica recebida com sucesso!")
     else:
         connectionSocket.sendall('READY'.encode('utf-8'))
-        print("Bora fazer backup")
         filename = connectionSocket.recv(1024).decode('utf-8')
         print(f"Receiving file: {filename}")
         connectionSocket.sendall('READY FOR RECEIVE'.encode('utf-8'))
         receive_file(connectionSocket, filename)
-        print(ip_replica_1)
-        print(ip_replica_2)
-        time.sleep(2)
         if ip_replica_1 != 'VAZIO':
             send_replica(ip_replica_1, filename)
             send_replica(ip_replica_2, filename)

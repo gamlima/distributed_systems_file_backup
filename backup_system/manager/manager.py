@@ -1,5 +1,4 @@
 from socket import *
-import os
 import time
 
 def update_servers_latency(servers_info):
@@ -9,7 +8,7 @@ def update_servers_latency(servers_info):
         serverSocket.connect(server['address'])
         serverSocket.sendall("LATENCY".encode('utf-8'))
         server['latency'] = time.time() - start_time
-        print(server['latency'])
+        print(f"latency: {server['latency']}")
         serverSocket.close()
 
 def update_servers_storage(servers_info):
@@ -18,45 +17,41 @@ def update_servers_storage(servers_info):
         serverSocket.connect(server['address'])
         serverSocket.sendall("STORAGE".encode('utf-8'))
         response = serverSocket.recv(1024).decode('utf-8')
-        if response != None:
-            server['storage'] = int(response)
-            print(f"storage: {server['storage']}")
+        server['storage'] = int(response)
+        print(f"storage: {server['storage']}")
         serverSocket.close()
 
 def choose_server(servers_info):
-    print("Bora escolher os melhores servers")
     update_servers_latency(servers_info)
-    print("Consegui atualizar as latências")
-    print("Bora analisar os storages")
     update_servers_storage(servers_info)
-    print("Consegui atualizar os storages")
-    #Verificar casos específicos de armazenamento ou latencia igual a 0 ou infinito, ou cheio
-    best_storage = min(server['storage'] for server in servers_info)
-    print(f"Melhor storage: {best_storage}")
-    best_latency = min(server['latency'] for server in servers_info) 
-    print(f"Melhor latência: {best_latency}")
+
+    all_storages = [server['storage'] for server in servers_info if server['storage'] > 0]
+    best_storage = min(all_storages) if all_storages else float('inf')
+    all_latencies = [server['latency'] for server in servers_info if server['latency'] > 0]
+    best_latency = min(all_latencies) if all_latencies else float('inf')
 
     def score(server):
         if server['storage'] == 0:
             normalized_storage = 1
         else:
-            normalized_storage = best_storage / server['storage'] #Tratar divisão por zero
-        normalized_latency = 1
+            normalized_storage = (best_storage - server['storage']) / best_storage
+
         if server['latency'] == 0:
             normalized_latency = 1
         else:
-            normalized_latency = best_latency / server['latency']
-        # Peso para as métricas: ajuste conforme necessário
+            normalized_latency = (best_latency - server['latency']) / best_latency
+
+        #Reajustar o peso das métricas se quiser
         return 0.5 * normalized_storage + 0.5 * normalized_latency
 
     sorted_servers = sorted(servers_info, key=score, reverse=True)
     return sorted_servers[:3]
 
 servers_info = [
-    {'address': ('localhost', 9001), 'storage': 1000, 'latency': 1},
-    {'address': ('localhost', 9002), 'storage': 1000, 'latency': 1},
-    {'address': ('localhost', 9003), 'storage': 1000, 'latency': 1},
-    {'address': ('localhost', 9004), 'storage': 1000, 'latency': 1}
+    {'address': ('localhost', 9001), 'storage': 0, 'latency': 0},
+    {'address': ('localhost', 9002), 'storage': 0, 'latency': 0},
+    {'address': ('localhost', 9003), 'storage': 0, 'latency': 0},
+    {'address': ('localhost', 9004), 'storage': 0, 'latency': 0}
 ]
 
 managerPort = 9000
